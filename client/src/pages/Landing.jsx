@@ -84,7 +84,7 @@ const Landing = () => {
     <div className='flex flex-col bg-black min-h-screen text-white'>
       {/* Background image */}
       <div className='absolute inset-0 flex justify-center items-center'>
-        <img src="/bg-ell.png" className='bg-image h-200 blur-3xl opacity-0 w-300' alt="background" />
+        <img src="/bg-ell.png" className='bg-image h-150 blur-3xl opacity-0 w-300' alt="background" />
       </div>
       <div className='bg-white/12 h-full pb-12 backdrop-blur-lg'>
 
@@ -99,7 +99,7 @@ const Landing = () => {
         {/* Logo and tagline */}
         <div className='relative flex flex-col items-center justify-between flex-grow px-4 py-16'>
           <div className='text-center mt-8'>
-            <img ref={logoRef} src="/logo1.png" alt="Open In" className='mx-auto h-40 w-[400px] mb-5 mt-[15%] max-w-md' />
+            <img ref={logoRef} src="/logo1.png" alt="Open In" className='mx-auto h-40 w-[500px] mb-5 mt-[15%] ' />
             <h2 ref={taglineRef} className='text-gray-400 font-medium mb-50 text-xl'>Level Up Your Skills Like a Solo Protagonist</h2>
           </div>
         </div>
