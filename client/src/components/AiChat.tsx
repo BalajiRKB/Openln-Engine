@@ -6,22 +6,25 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const API_KEY = import.meta.env.AI_API_KEY; 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-const AiChat = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) => {
+interface AiChatProps {
+  onClose: () => void;
+  onSelectGoal?: (goal: string) => void;
+  taskType?: string | null;
+  taskTitle?: string | null;
+}
+
+const AiChat: React.FC<AiChatProps> = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) => {
   const [message, setMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistory, setChatHistory] = useState<{ sender: string; text: string; suggestions?: boolean }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
-  const modelRef = useRef(null);
-  const chatRef = useRef(null);
-  
-  // Initialize Gemini model and chat
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const modelRef = useRef<any>(null);
+  const chatRef = useRef<any>(null);
+
   useEffect(() => {
     const initializeGemini = async () => {
       try {
-        // Get the generative model
         modelRef.current = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-        // Start a chat
         chatRef.current = await modelRef.current.startChat({
           history: [],
           generationConfig: {
@@ -32,34 +35,23 @@ const AiChat = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) =>
           },
         });
       } catch (error) {
-        // Handle initialization error if needed
         console.error("Failed to initialize Gemini chat:", error);
       }
     };
     initializeGemini();
   }, []);
-  
-  const handleSendMessage = async (e) => {
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!message.trim()) return;
-    
-    // Add user message to chat history
     const userMessage = { sender: "user", text: message };
     setChatHistory((prev) => [...prev, userMessage]);
-    
     setIsLoading(true);
     setMessage("");
-    
     try {
-      // Get AI response
       const response = await chatRef.current.sendMessage(message);
-      
-      // Add AI response to chat history
       const aiMessage = { sender: "ai", text: response.text };
       setChatHistory((prev) => [...prev, aiMessage]);
-      
-      // Scroll to bottom
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (error) {
       console.error("Error sending message to Gemini:", error);
@@ -67,30 +59,19 @@ const AiChat = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) =>
       setIsLoading(false);
     }
   };
-  
-  const handleSelectGoal = (goal) => {
-    // Send goal selection message
-    const goalMessage = {
-      sender: "user",
-      text: `I want to focus on: ${goal}`,
-    };
-    
+
+  const handleSelectGoal = (goal: string) => {
+    const goalMessage = { sender: "user", text: `I want to focus on: ${goal}` };
     setChatHistory((prev) => [...prev, goalMessage]);
-    
-    // Simulate AI thinking time
     setIsLoading(true);
     setTimeout(() => {
-      // Send AI response with suggestions
       const aiResponse = {
         sender: "ai",
         text: `Great choice! Focusing on "${goal}" is a smart move. Here are some resources to get you started: [link1], [link2], [link3].`,
         suggestions: true,
       };
-      
       setChatHistory((prev) => [...prev, aiResponse]);
       setIsLoading(false);
-      
-      // Scroll to bottom
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 1000);
   };
@@ -99,16 +80,13 @@ const AiChat = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) =>
     <div className="bg-black/30 rounded-2xl p-6 text-white h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <div className="text-purple-600 text-2xl font-bold">Cosa AI Chat</div>
-        <button 
-          onClick={onClose}
-          className="text-gray-400 hover:text-white"
-        >
+        <button onClick={onClose} className="text-gray-400 hover:text-white">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto mb-4 space-y-4">
         {chatHistory.map((msg, index) => (
           <div key={index}>
@@ -117,7 +95,6 @@ const AiChat = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) =>
                 <div className="self-start bg-[#4a295a] bg-opacity-60 text-white px-4 py-2 rounded-xl max-w-[80%] text-sm">
                   {msg.text}
                 </div>
-                
                 {msg.suggestions && (
                   <div className="mt-4 grid grid-cols-1 gap-2">
                     {["Getting 12+ lpa job", "Starting an Startup", "Full stack Dev", "Crack GSOC"].map((goal) => (
@@ -142,8 +119,7 @@ const AiChat = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) =>
           </div>
         ))}
         <div ref={messagesEndRef} />
-        
-        {/* Loading indicator */}
+
         {isLoading && (
           <div className="flex items-center space-x-2">
             <div className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: "0ms" }}></div>
@@ -152,7 +128,7 @@ const AiChat = ({ onClose, onSelectGoal, taskType = null, taskTitle = null }) =>
           </div>
         )}
       </div>
-      
+
       <form onSubmit={handleSendMessage} className="mt-auto">
         <div className="relative">
           <input

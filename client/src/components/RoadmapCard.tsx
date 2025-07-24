@@ -1,10 +1,29 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const RoadmapCard = ({ milestone, isActive, onStart }) => {
-  // Status indicator colors
+interface Milestone {
+  _id: string;
+  title: string;
+  description: string;
+  estimatedTime: string;
+  difficulty: number;
+  status: 'locked' | 'available' | 'in_progress' | 'completed';
+  type: 'knowledge' | 'project' | 'assessment' | 'skill_building' | string;
+  rewards?: {
+    experience?: number;
+    skills?: { skill: string; points: number }[];
+  };
+}
+
+interface RoadmapCardProps {
+  milestone: Milestone;
+  isActive: boolean;
+  onStart: () => void;
+}
+
+const RoadmapCard: React.FC<RoadmapCardProps> = ({ milestone, isActive, onStart }) => {
   const statusIndicator = () => {
-    switch(milestone.status) {
+    switch (milestone.status) {
       case 'available':
         return 'bg-yellow-400';
       case 'in_progress':
@@ -15,10 +34,9 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
         return 'bg-gray-600';
     }
   };
-  
-  // Type badge styles
+
   const typeBadge = () => {
-    switch(milestone.type) {
+    switch (milestone.type) {
       case 'knowledge':
         return 'bg-blue-900/60 text-blue-300';
       case 'project':
@@ -36,19 +54,17 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
     <div className={`relative transition-all duration-300 ${
       isActive ? 'scale-102 shadow-lg' : ''
     }`}>
-      {/* Milestone indicator */}
       <div className={`absolute -left-10 top-5 w-4 h-4 rounded-full border-4 border-gray-900 ${statusIndicator()}`}></div>
-      
-      <div className={`bg-white/10 backdrop-blur-sm rounded-xl p-5 
-        ${isActive ? 'border border-purple-500/50' : 'border border-transparent'} 
-        ${milestone.status === 'locked' ? 'opacity-60' : ''}`}>
-        
-        {/* Header */}
+
+      <div className={`bg-white/10 backdrop-blur-sm rounded-xl p-5 ${
+        isActive ? 'border border-purple-500/50' : 'border border-transparent'
+      } ${milestone.status === 'locked' ? 'opacity-60' : ''}`}>
+
         <div className="flex items-center justify-between mb-3">
           <span className={`px-3 py-1 text-xs rounded-full ${typeBadge()}`}>
             {milestone.type.replace('_', ' ')}
           </span>
-          
+
           <div className="flex items-center">
             <span className="text-xs text-gray-400 mr-2">
               {milestone.estimatedTime}
@@ -62,12 +78,10 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
             </span>
           </div>
         </div>
-        
-        {/* Content */}
+
         <h3 className="text-lg font-bold">{milestone.title}</h3>
         <p className="text-gray-400 text-sm mb-3">{milestone.description}</p>
-        
-        {/* Rewards */}
+
         {milestone.rewards && (
           <div className="flex flex-wrap gap-2 mb-4">
             {milestone.rewards.experience && (
@@ -75,7 +89,6 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
                 +{milestone.rewards.experience} XP
               </div>
             )}
-            
             {milestone.rewards.skills && milestone.rewards.skills.map((skill, i) => (
               <div key={i} className="bg-indigo-900/30 rounded-lg px-2 py-1 text-xs">
                 {skill.skill} +{skill.points}
@@ -83,8 +96,7 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
             ))}
           </div>
         )}
-        
-        {/* Actions */}
+
         <div className="mt-4">
           {milestone.status === 'locked' && (
             <div className="flex items-center text-sm text-gray-400">
@@ -94,7 +106,7 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
               Complete previous milestones to unlock
             </div>
           )}
-          
+
           {milestone.status === 'available' && (
             <button
               onClick={onStart}
@@ -103,7 +115,7 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
               Start Milestone
             </button>
           )}
-          
+
           {milestone.status === 'in_progress' && (
             <Link
               to={`/roadmap/milestone/${milestone._id}`}
@@ -112,7 +124,7 @@ const RoadmapCard = ({ milestone, isActive, onStart }) => {
               Continue
             </Link>
           )}
-          
+
           {milestone.status === 'completed' && (
             <Link
               to={`/roadmap/milestone/${milestone._id}`}

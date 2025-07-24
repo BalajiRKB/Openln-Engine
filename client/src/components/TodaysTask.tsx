@@ -2,28 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getBackendUrl } from '../utils/api';
 
-const TodaysTask = () => {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  // Calculate progress based on completed tasks
+interface Task {
+  _id: string;
+  title: string;
+  type: string;
+  status: 'completed' | 'in_progress';
+  experienceReward: number;
+  skillRewards?: { skill: string; points: number }[];
+}
+
+const TodaysTask: React.FC = () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
   const calculateProgress = () => {
     if (tasks.length === 0) return 0;
     const completedCount = tasks.filter(task => task.status === 'completed').length;
     return Math.floor((completedCount / tasks.length) * 100);
   };
-  
+
   useEffect(() => {
     const fetchTasks = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('token');
-        
-        if (!token) {
-          return;
-        }
-        
+        if (!token) return;
+
         const backendUrl = getBackendUrl();
         const response = await fetch(`${backendUrl}/api/tasks/today`, {
           method: 'GET',
@@ -33,24 +38,22 @@ const TodaysTask = () => {
           },
           credentials: 'include'
         });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch tasks');
-        }
-        
+
+        if (!response.ok) throw new Error('Failed to fetch tasks');
+
         const data = await response.json();
         setTasks(data.tasks || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching tasks:', error);
         setError(error.message);
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchTasks();
   }, []);
-  
+
   if (loading) {
     return (
       <div className="w-full max-w-3xl mx-auto bg-white/15 backdrop-blur-md rounded-[20px] p-6 mb-10">
@@ -61,7 +64,7 @@ const TodaysTask = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="w-full max-w-3xl mx-auto bg-white/15 backdrop-blur-md rounded-[20px] p-6 mb-10">
@@ -76,7 +79,7 @@ const TodaysTask = () => {
       </div>
     );
   }
-  
+
   if (tasks.length === 0) {
     return (
       <div className="w-full max-w-3xl mx-auto bg-white/15 backdrop-blur-md rounded-[20px] p-6 mb-10">
@@ -88,7 +91,7 @@ const TodaysTask = () => {
               setLoading(true);
               const token = localStorage.getItem('token');
               const backendUrl = getBackendUrl();
-              
+
               const response = await fetch(`${backendUrl}/api/tasks/generate`, {
                 method: 'POST',
                 headers: {
@@ -97,14 +100,12 @@ const TodaysTask = () => {
                 },
                 credentials: 'include'
               });
-              
-              if (!response.ok) {
-                throw new Error('Failed to generate tasks');
-              }
-              
+
+              if (!response.ok) throw new Error('Failed to generate tasks');
+
               const data = await response.json();
               setTasks(data.tasks || []);
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error generating tasks:', error);
               setError(error.message);
             } finally {
@@ -118,22 +119,20 @@ const TodaysTask = () => {
       </div>
     );
   }
-  
+
   const progress = calculateProgress();
-  
+
   return (
     <div className="w-full max-w-3xl mx-auto bg-white/15 backdrop-blur-md rounded-[20px] p-6 mb-10">
       <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-4">Today's Tasks</h2>
-      
-      {/* Progress bar */}
+
       <div className="bg-white/20 h-4 rounded-full mb-6 overflow-hidden">
         <div 
           className="bg-gradient-to-r from-purple-600 to-purple-400 h-full rounded-full"
           style={{ width: `${progress}%` }}
         />
       </div>
-      
-      {/* Task items */}
+
       <div className="space-y-3">
         {tasks.map((task) => (
           <Link 
