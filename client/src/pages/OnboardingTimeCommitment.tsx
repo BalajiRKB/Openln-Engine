@@ -20,7 +20,7 @@ const OnboardingTimeCommitment: React.FC = () => {
       }
 
       const backendUrl = process.env.NODE_ENV === "production"
-        ? "https://s76-balaji-openln.onrender.com"
+        ? "https://openln-engine.onrender.com"
         : "http://localhost:5000";
 
       await fetch(`${backendUrl}/api/auth/profile`, {
