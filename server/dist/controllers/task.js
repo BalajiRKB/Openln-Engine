@@ -1,12 +1,10 @@
 import Task from '../models/task.js';
-
 // @desc    Create new task
 // @route   POST /api/tasks
 // @access  Public
 export const createTask = async (req, res) => {
     try {
         const { title, description, deadline } = req.body;
-
         // Validate request body
         if (!title || !description) {
             return res.status(400).json({
@@ -14,23 +12,19 @@ export const createTask = async (req, res) => {
                 message: 'Please provide both title and description'
             });
         }
-
         // Create task in database
         const task = await Task.create({
             title,
             description,
-            deadline: deadline || null,
-            createdBy: 'Balaji-R-2007', // Using current user
-            deadline: deadline || null,
-            createdBy: 'Balaji-R-2007' // Using current user
+            deadline: deadline || undefined,
+            userId: '507f1f77bcf86cd799439011' // placeholder user ID
         });
-
         res.status(201).json({
             success: true,
             data: task
         });
-
-    } catch (error) {
+    }
+    catch (error) {
         console.error('Error creating task:', error);
         res.status(500).json({
             success: false,
@@ -38,7 +32,6 @@ export const createTask = async (req, res) => {
         });
     }
 };
-
 // @desc    Update task
 // @route   PUT /api/tasks/:id
 // @access  Public
@@ -46,7 +39,6 @@ export const updateTask = async (req, res) => {
     try {
         const { id } = req.params;
         const { title, description, deadline, status } = req.body;
-
         // Validate request body
         if (!title && !description && !deadline && !status) {
             return res.status(400).json({
@@ -54,7 +46,6 @@ export const updateTask = async (req, res) => {
                 message: 'Please provide at least one field to update'
             });
         }
-
         // Find task
         let task = await Task.findById(id);
         if (!task) {
@@ -63,27 +54,21 @@ export const updateTask = async (req, res) => {
                 message: 'Task not found'
             });
         }
-
         // Update task
-        task = await Task.findByIdAndUpdate(
-            id,
-            {
-                ...(title && { title }),
-                ...(description && { description }),
-                ...(deadline && { deadline }),
-                ...(status && { status }),
-                updatedBy: 'Balaji-R-2007',
-                updatedAt: new Date().toISOString()
-            },
-            { new: true, runValidators: true }
-        );
-
+        task = await Task.findByIdAndUpdate(id, {
+            ...(title && { title }),
+            ...(description && { description }),
+            ...(deadline && { deadline }),
+            ...(status && { status }),
+            updatedBy: 'Balaji-R-2007',
+            updatedAt: new Date().toISOString()
+        }, { new: true, runValidators: true });
         res.json({
             success: true,
             data: task
         });
-
-    } catch (error) {
+    }
+    catch (error) {
         console.error('Error updating task:', error);
         if (error.name === 'ValidationError') {
             return res.status(400).json({
@@ -97,7 +82,6 @@ export const updateTask = async (req, res) => {
         });
     }
 };
-
 // @desc    Get all tasks
 // @route   GET /api/tasks
 // @access  Public
@@ -105,14 +89,13 @@ export const getTasks = async (req, res) => {
     try {
         const tasks = await Task.find()
             .sort({ createdAt: -1 });
-
         res.json({
             success: true,
             count: tasks.length,
             data: tasks
         });
-
-    } catch (error) {
+    }
+    catch (error) {
         console.error('Error fetching tasks:', error);
         res.status(500).json({
             success: false,
@@ -120,3 +103,4 @@ export const getTasks = async (req, res) => {
         });
     }
 };
+//# sourceMappingURL=task.js.map

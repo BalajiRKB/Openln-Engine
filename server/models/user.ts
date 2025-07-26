@@ -1,8 +1,9 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { IUser } from '../types/index.js';
 
-const userSchema = new mongoose.Schema({
+const userSchema = new Schema<IUser>({
   username: {
     type: String,
     required: [true, 'Username is required'],
@@ -124,24 +125,26 @@ userSchema.pre('save', async function(next) {
 
   try {
     const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    if (this.password) {
+      this.password = await bcrypt.hash(this.password, salt);
+    }
     next();
-  } catch (error) {
+  } catch (error: any) {
     next(error);
   }
 });
 
 // Password comparison method
-userSchema.methods.matchPassword = async function(enteredPassword) {
+userSchema.methods.matchPassword = async function(enteredPassword: string): Promise<boolean> {
   if (this.isGoogleUser) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // JWT generation method
-userSchema.methods.getSignedJwtToken = function() {
-  return jwt.sign({ id: this._id, isGoogleUser: this.isGoogleUser }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
+userSchema.methods.getSignedJwtToken = function(): string {
+  return jwt.sign({ id: this._id, isGoogleUser: this.isGoogleUser }, process.env.JWT_SECRET as string, {
+    expiresIn: '30d'
   });
 };
 
-export default mongoose.model('User', userSchema);
+export default mongoose.model<IUser>('User', userSchema);

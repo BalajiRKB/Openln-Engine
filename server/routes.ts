@@ -1,10 +1,11 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { protect } from './middleware/authMiddleware.js';
 import { signup, login, getUserProfile, logout, updateProfile, googleCallback } from './controllers/auth.js';
 import { generateDailyTasks, getTasks, completeTask, getUserProfile as getProfileData, generateTaskContent } from './controllers/taskGenerator.js';
 import passport from './config/passport.js';
-import Task from './models/task.js'; // Add this import
-import User from './models/user.js'; // Import User model
+import Task from './models/task.js';
+import User from './models/user.js';
+import { AuthRequest } from './types/index.js';
 
 export const router = express.Router();
 
@@ -30,7 +31,7 @@ router.post('/tasks/generate', protect, generateDailyTasks);
 
 // IMPORTANT: Put specific routes before parameterized routes
 // Today's tasks route
-router.get('/tasks/today', protect, async (req, res) => {
+router.get('/tasks/today', protect, async (req: AuthRequest, res: Response) => {
   try {
     // Find tasks created today for this user
     const today = new Date();
@@ -48,7 +49,7 @@ router.get('/tasks/today', protect, async (req, res) => {
       success: true,
       tasks
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching today\'s tasks:', error);
     res.status(500).json({
       success: false,
@@ -61,7 +62,7 @@ router.get('/tasks/today', protect, async (req, res) => {
 router.post('/tasks/:id/complete', protect, completeTask);
 
 // Individual task route - MUST come after /tasks/today
-router.get('/tasks/:id', protect, async (req, res) => {
+router.get('/tasks/:id', protect, async (req: AuthRequest, res: Response) => {
   try {
     const task = await Task.findOne({ _id: req.params.id, userId: req.user.id });
     
@@ -76,7 +77,7 @@ router.get('/tasks/:id', protect, async (req, res) => {
       success: true,
       task
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching task:', error);
     res.status(500).json({
       success: false,
@@ -86,7 +87,7 @@ router.get('/tasks/:id', protect, async (req, res) => {
 });
 
 // Regenerate task content route
-router.post('/tasks/:id/regenerate', protect, async (req, res) => {
+router.post('/tasks/:id/regenerate', protect, async (req: AuthRequest, res: Response) => {
   try {
     // Find the task
     const task = await Task.findOne({ _id: req.params.id, userId: req.user.id });
@@ -100,6 +101,12 @@ router.post('/tasks/:id/regenerate', protect, async (req, res) => {
     
     // Get the user
     const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
     
     // Generate new content
     const taskContent = await generateTaskContent(user, task.type);
@@ -116,7 +123,7 @@ router.post('/tasks/:id/regenerate', protect, async (req, res) => {
       success: true,
       task
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error regenerating task content:', error);
     res.status(500).json({
       success: false,

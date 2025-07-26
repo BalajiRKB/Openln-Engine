@@ -1,8 +1,14 @@
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import { Request, Response, NextFunction } from 'express';
 import User from '../models/user.js';
+import { AuthRequest } from '../types/index.js';
 
-export const protect = async (req, res, next) => {
-  let token;
+interface DecodedToken extends JwtPayload {
+  id: string;
+}
+
+export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  let token: string | undefined;
 
   // Check for token in cookies or Authorization header
   if (req.cookies.jwt) {
@@ -23,12 +29,12 @@ export const protect = async (req, res, next) => {
 
   try {
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as DecodedToken;
 
     // Add user to request
     req.user = await User.findById(decoded.id).select('-password');
     next();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Authentication error:', error);
     res.status(401).json({
       success: false,

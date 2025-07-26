@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-const milestoneSchema = new mongoose.Schema({
+const milestoneSchema = new Schema({
   title: {
     type: String,
     required: true
@@ -70,7 +70,7 @@ const milestoneSchema = new mongoose.Schema({
   }
 });
 
-const roadmapSchema = new mongoose.Schema({
+const roadmapSchema = new Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
