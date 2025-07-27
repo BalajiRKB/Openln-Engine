@@ -1,11 +1,21 @@
+import { Request, Response } from 'express';
 import User from '../models/user.js';
 import Roadmap from '../models/roadmap.js';
 import jwt from 'jsonwebtoken';
+import { 
+  IUser, 
+  IRoadmap, 
+  AuthRequest, 
+  SignupRequestBody, 
+  LoginRequestBody, 
+  UpdateProfileRequestBody,
+  ApiResponse 
+} from '../types/index.js';
 
 // @desc    Register new user
 // @route   POST /api/auth/signup
 // @access  Public
-export const signup = async (req, res) => {
+export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, res: Response<ApiResponse>) => {
   try {
     const { username, email, password } = req.body;
 
@@ -33,7 +43,7 @@ export const signup = async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET as string,
       { expiresIn: '30d' }
     );
 
@@ -58,17 +68,17 @@ export const signup = async (req, res) => {
     });
 
     // Generate user roadmap (default or based on user goal)
-    const generateUserRoadmap = async (userId, goal, learningStyle) => {
+    const generateUserRoadmap = async (userId: string, goal: string, learningStyle: string): Promise<IRoadmap | null> => {
       try {
         const user = await User.findById(userId);
-        if (!user) return;
+        if (!user) return null;
         
         // Generate roadmap based on user's goal
         const roadmapTitle = `Your path to ${goal}`;
         const roadmapDescription = `A personalized learning journey to help you ${goal.toLowerCase()}`;
         
         // Create basic milestone structure based on goal
-        let milestones = [];
+        let milestones: any[] = [];
         
         if (goal === "Starting an Startup") {
           milestones = [
@@ -178,10 +188,10 @@ export const signup = async (req, res) => {
         await roadmap.save();
         
         // Link to user
-        user.profileData.roadmapId = roadmap._id;
+        user.profileData.roadmapId = roadmap._id.toString();
         await user.save();
         
-        return roadmap;
+        return roadmap.toObject() as unknown as IRoadmap;
       } catch (error) {
         console.error("Error generating roadmap:", error);
         return null;
@@ -191,7 +201,7 @@ export const signup = async (req, res) => {
     // Call this function at the end of the onboarding process
     // e.g., after user selects their goal and learning style
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in signup:', error);
     res.status(500).json({
       success: false,
@@ -203,7 +213,7 @@ export const signup = async (req, res) => {
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
-export const login = async (req, res) => {
+export const login = async (req: Request<{}, ApiResponse, LoginRequestBody>, res: Response<ApiResponse>) => {
   try {
     const { email, password } = req.body;
 
@@ -229,7 +239,7 @@ export const login = async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET as string,
       { expiresIn: '30d' }
     );
     
@@ -253,7 +263,7 @@ export const login = async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in login:', error);
     res.status(500).json({
       success: false,
@@ -265,7 +275,7 @@ export const login = async (req, res) => {
 // @desc    Get current user profile
 // @route   GET /api/auth/me
 // @access  Private
-export const getUserProfile = async (req, res) => {
+export const getUserProfile = async (req: AuthRequest, res: Response<ApiResponse>) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     
@@ -280,7 +290,7 @@ export const getUserProfile = async (req, res) => {
       success: true,
       user
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error getting user profile:', error);
     res.status(500).json({
       success: false,
@@ -292,7 +302,7 @@ export const getUserProfile = async (req, res) => {
 // @desc    Logout user
 // @route   POST /api/auth/logout
 // @access  Private
-export const logout = (req, res) => {
+export const logout = (req: Request, res: Response<ApiResponse>) => {
   res.cookie('jwt', '', {
     httpOnly: true,
     expires: new Date(0)
@@ -307,7 +317,7 @@ export const logout = (req, res) => {
 // @desc    Update user profile data
 // @route   PUT /api/auth/profile
 // @access  Private
-export const updateProfile = async (req, res) => {
+export const updateProfile = async (req: AuthRequest, res: Response<ApiResponse>) => {
   try {
     const { goal, timeCommitment, learningStyle } = req.body;
     
@@ -337,7 +347,7 @@ export const updateProfile = async (req, res) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating profile:', error);
     res.status(500).json({
       success: false,
@@ -347,7 +357,7 @@ export const updateProfile = async (req, res) => {
 };
 
 // Google OAuth callback
-export const googleCallback = (req, res) => {
+export const googleCallback = (req: AuthRequest, res: Response) => {
   try {
     // Check if this is a new user (created during this authentication)
     const isNewUser = req.user.__isNewUser || false;
@@ -355,7 +365,7 @@ export const googleCallback = (req, res) => {
     // Generate JWT for the authenticated user
     const token = jwt.sign(
       { id: req.user._id },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET as string,
       { expiresIn: '30d' }
     );
 
@@ -373,7 +383,7 @@ export const googleCallback = (req, res) => {
       : `${process.env.CLIENT_URL}/dashboard`;
     
     res.redirect(redirectUrl);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in Google auth callback:', error);
     res.redirect(`${process.env.CLIENT_URL}/login?error=ServerError`);
   }

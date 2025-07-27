@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Request, Response } from "express";
 import dotenv from "dotenv";
 import Task from "../models/task.js";
 import User from "../models/user.js";
+import { AuthRequest, IUser, ITask } from "../types/index.js";
 
 dotenv.config();
 
@@ -10,7 +12,7 @@ const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyCAbNEZsHxmKKRBmyEMRV8Qoie8j
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // Helper function to get task difficulty based on user level
-const getTaskDifficulty = (level) => {
+const getTaskDifficulty = (level: number): number => {
   if (level <= 5) return 1;
   if (level <= 10) return 2;
   if (level <= 15) return 3;
@@ -19,14 +21,14 @@ const getTaskDifficulty = (level) => {
 };
 
 // Helper function to get experience reward based on task difficulty
-const getExperienceReward = (difficulty) => {
+const getExperienceReward = (difficulty: number): number => {
   const baseXP = 10;
   return baseXP * difficulty;
 };
 
 // Helper function to determine skills based on user goal
-const determineSkillsForGoal = (goal) => {
-  const skillMap = {
+const determineSkillsForGoal = (goal: string): string[] => {
+  const skillMap: Record<string, string[]> = {
     "Getting 12+ lpa job": ["Technical Skills", "Interview Preparation", "Problem Solving", "Algorithms", "Data Structures"],
     "Starting an Startup": ["Business Planning", "Market Research", "Pitching", "Marketing", "Product Development"],
     "Full stack Dev": ["Frontend", "Backend", "Database", "DevOps", "API Design", "UI/UX"],
@@ -37,12 +39,12 @@ const determineSkillsForGoal = (goal) => {
 };
 
 // Determine task types based on user's goal and learning style
-const determineTaskTypes = (goal, learningStyle) => {
+const determineTaskTypes = (goal: string, learningStyle: string): string[] => {
   // Base task types that apply to all goals
   const baseTypes = ['AI Module', 'Quiz'];
   
   // Goal-specific task types
-  const goalTaskMap = {
+  const goalTaskMap: Record<string, string[]> = {
     "Getting 12+ lpa job": ['Coding', 'Practice'],
     "Starting an Startup": ['Project', 'Writing'],
     "Full stack Dev": ['Coding', 'Project'],
@@ -50,7 +52,7 @@ const determineTaskTypes = (goal, learningStyle) => {
   };
   
   // Learning style preferences
-  const styleTaskMap = {
+  const styleTaskMap: Record<string, string[]> = {
     "Visual": ['AI Module', 'Project'],
     "Auditory": ['AI Module', 'Practice'],
     "Reading/Writing": ['Reading', 'Writing'],
@@ -74,7 +76,7 @@ const determineTaskTypes = (goal, learningStyle) => {
 };
 
 // Generate AI task content based on user preferences
-const generateTaskContent = async (user, taskType) => {
+const generateTaskContent = async (user: IUser, taskType: string): Promise<any> => {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
     
@@ -132,18 +134,18 @@ const generateTaskContent = async (user, taskType) => {
     
     // If we still don't have valid data after all attempts, use fallback content
     if (!taskData || !taskData.content) {
-      return getFallbackTaskContent(taskType, userGoal);
+      return getFallbackTaskContent(taskType, user.profileData.goal);
     }
     
     return taskData;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating task content:", error);
-    return getFallbackTaskContent(taskType, userGoal);
+    return getFallbackTaskContent(taskType, user.profileData.goal);
   }
 };
 
 // Add this helper function for fallback content
-const getFallbackTaskContent = (taskType, goal) => {
+const getFallbackTaskContent = (taskType: string, goal: string): any => {
   const fallbackContent = {
     title: `${taskType} Task`,
     description: `Complete this ${taskType.toLowerCase()} task related to ${goal}`,
@@ -170,7 +172,7 @@ const getFallbackTaskContent = (taskType, goal) => {
 };
 
 // Generate daily tasks for a user
-export const generateDailyTasks = async (req, res) => {
+export const generateDailyTasks = async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.user.id);
     
@@ -226,7 +228,7 @@ export const generateDailyTasks = async (req, res) => {
       
       // Determine skills that this task will improve
       const relevantSkills = determineSkillsForGoal(user.profileData.goal);
-      const skillRewards = relevantSkills.slice(0, 2).map(skill => ({
+      const skillRewards = relevantSkills.slice(0, 2).map((skill: string) => ({
         skill,
         points: Math.floor(5 + (difficulty * 2))
       }));
@@ -256,7 +258,7 @@ export const generateDailyTasks = async (req, res) => {
       tasks
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating daily tasks:', error);
     res.status(500).json({
       success: false,
@@ -266,7 +268,7 @@ export const generateDailyTasks = async (req, res) => {
 };
 
 // Get all tasks for the current user
-export const getTasks = async (req, res) => {
+export const getTasks = async (req: AuthRequest, res: Response) => {
   try {
     const tasks = await Task.find({ userId: req.user.id }).sort({ createdAt: -1 });
     
@@ -274,7 +276,7 @@ export const getTasks = async (req, res) => {
       success: true,
       tasks
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching tasks:', error);
     res.status(500).json({
       success: false,
@@ -284,7 +286,7 @@ export const getTasks = async (req, res) => {
 };
 
 // Complete a task and award XP and skill points
-export const completeTask = async (req, res) => {
+export const completeTask = async (req: AuthRequest, res: Response) => {
   try {
     const task = await Task.findOne({ _id: req.params.id, userId: req.user.id });
     
@@ -329,27 +331,35 @@ export const completeTask = async (req, res) => {
     
     // Update task status
     task.status = 'completed';
-    task.updatedAt = Date.now();
+    task.updatedAt = new Date();
     await task.save();
     
     // Update user's experience, skills, and streak
     const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
     
     // Add experience
     user.profileData.experience += task.experienceReward;
     
     // Update skills
     for (const skillReward of task.skillRewards) {
+      if (!skillReward.skill || !skillReward.points) continue;
+      
       const existingSkill = user.profileData.skills.find(s => s.name === skillReward.skill);
       
       if (existingSkill) {
         existingSkill.proficiency = Math.min(100, existingSkill.proficiency + skillReward.points);
-        existingSkill.lastImproved = Date.now();
+        existingSkill.lastImproved = new Date();
       } else {
         user.profileData.skills.push({
           name: skillReward.skill,
           proficiency: skillReward.points,
-          lastImproved: Date.now()
+          lastImproved: new Date()
         });
       }
     }
@@ -375,7 +385,8 @@ export const completeTask = async (req, res) => {
           user.profileData.achievements.push({
             title: `${user.profileData.streak.current} Day Streak!`,
             description: `You've maintained your learning streak for ${user.profileData.streak.current} days!`,
-            icon: 'streak'
+            icon: 'streak',
+            date: new Date()
           });
         }
         
@@ -394,7 +405,7 @@ export const completeTask = async (req, res) => {
     user.profileData.streak.lastCompleted = today;
     
     // Add to completed tasks
-    user.profileData.completedTasks.push(task._id);
+    user.profileData.completedTasks.push(task._id.toString());
     
     // Check for level up
     const previousLevel = user.profileData.level;
@@ -469,7 +480,7 @@ export const completeTask = async (req, res) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error completing task:', error);
     res.status(500).json({
       success: false,
@@ -479,13 +490,13 @@ export const completeTask = async (req, res) => {
 };
 
 // Calculate user level based on experience
-const calculateLevel = (experience) => {
+const calculateLevel = (experience: number): number => {
   // Simplified level calculation: level = sqrt(experience / 10)
   return Math.floor(Math.sqrt(experience / 10)) + 1;
 };
 
 // Calculate rank based on level
-const calculateRank = (level) => {
+const calculateRank = (level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' => {
   if (level <= 5) return 'E';
   if (level <= 10) return 'D';
   if (level <= 15) return 'C';
@@ -495,7 +506,7 @@ const calculateRank = (level) => {
 };
 
 // Calculate progress percentage to next level
-const calculateProgressToNextLevel = (experience, currentLevel) => {
+const calculateProgressToNextLevel = (experience: number, currentLevel: number): number => {
   const nextLevelExp = Math.pow(currentLevel, 2) * 10;
   const currentLevelExp = Math.pow(currentLevel - 1, 2) * 10;
   const expForNextLevel = nextLevelExp - currentLevelExp;
@@ -505,7 +516,7 @@ const calculateProgressToNextLevel = (experience, currentLevel) => {
 };
 
 // Get user's profile data including rank, level, skills
-export const getUserProfile = async (req, res) => {
+export const getUserProfile = async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.user.id)
       .select('-password')
@@ -525,7 +536,7 @@ export const getUserProfile = async (req, res) => {
       email: user.email
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error getting user profile:', error);
     res.status(500).json({
       success: false,

@@ -1,0 +1,8 @@
+import mongoose from 'mongoose';
+import { IUser } from '../types/index.js';
+declare const _default: mongoose.Model<IUser, {}, {}, {}, mongoose.Document<unknown, {}, IUser, {}> & IUser & Required<{
+    _id: string;
+}> & {
+    __v: number;
+}, any>;
+export default _default;
