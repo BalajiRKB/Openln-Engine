@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import TodaysTask from '../components/TodaysTask';
 import { getBackendUrl } from '../utils/api';
 import RoadmapCard from '../components/RoadmapCard';
+import { useAuth } from '../contexts/AuthContext';
 
 // Rank colors
 type Rank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
@@ -59,6 +60,7 @@ const Dashboard: React.FC = () => {
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [roadmapLoading, setRoadmapLoading] = useState(true);
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -211,14 +213,7 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
-    const backendUrl = getBackendUrl();
-    fetch(`${backendUrl}/api/auth/logout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    }).catch(err => console.error('Logout error:', err));
+    logout();
   };
 
   if (loading) {
