@@ -15,22 +15,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(true);
   const navigate = useNavigate();
-  
-  // Check for the temporary token from OAuth flow
-  useEffect(() => {
-    const getCookie = (name: string): string | undefined => {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop()?.split(';').shift();
-    };
 
-    const tempToken = getCookie('tempAuthToken');
-    if (tempToken) {
-      localStorage.setItem('token', tempToken);
-      setToken(tempToken);
-      document.cookie = 'tempAuthToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    }
-    
+  useEffect(() => {
     setIsAuthenticating(false);
   }, []);
 
@@ -43,12 +29,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('token');
     setToken(null);
     navigate('/login');
-    
+
     // Call backend logout endpoint
-    const backendUrl = process.env.NODE_ENV === 'production' 
+    const backendUrl = process.env.NODE_ENV === 'production'
       ? 'https://openln-engine.onrender.com'
       : 'http://localhost:5000';
-      
+
     fetch(`${backendUrl}/api/auth/logout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -57,8 +43,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
+    <AuthContext.Provider
+      value={{
         isAuthenticated: !!token,
         token,
         login,

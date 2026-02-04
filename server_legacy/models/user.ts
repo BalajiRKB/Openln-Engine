@@ -18,17 +18,10 @@ const userSchema = new Schema<IUser>({
   },
   password: {
     type: String,
-    required: [function() { return !this.isGoogleUser; }, 'Password is required'],
+    required: [true, 'Password is required'],
     minlength: 6
   },
-  isGoogleUser: {
-    type: Boolean,
-    default: false
-  },
-  googleId: {
-    type: String,
-    sparse: true
-  },
+
   profileData: {
     rank: {
       type: String,
@@ -118,8 +111,8 @@ const userSchema = new Schema<IUser>({
 });
 
 // Password hashing middleware
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password') || this.isGoogleUser) {
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
     return next();
   }
 
@@ -135,14 +128,13 @@ userSchema.pre('save', async function(next) {
 });
 
 // Password comparison method
-userSchema.methods.matchPassword = async function(enteredPassword: string): Promise<boolean> {
-  if (this.isGoogleUser) return false;
+userSchema.methods.matchPassword = async function (enteredPassword: string): Promise<boolean> {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // JWT generation method
-userSchema.methods.getSignedJwtToken = function(): string {
-  return jwt.sign({ id: this._id, isGoogleUser: this.isGoogleUser }, process.env.JWT_SECRET as string, {
+userSchema.methods.getSignedJwtToken = function (): string {
+  return jwt.sign({ id: this._id }, process.env.JWT_SECRET as string, {
     expiresIn: '30d'
   });
 };

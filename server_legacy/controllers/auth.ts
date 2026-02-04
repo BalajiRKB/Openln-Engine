@@ -2,14 +2,14 @@ import { Request, Response } from 'express';
 import User from '../models/user.js';
 import Roadmap from '../models/roadmap.js';
 import jwt from 'jsonwebtoken';
-import { 
-  IUser, 
-  IRoadmap, 
-  AuthRequest, 
-  SignupRequestBody, 
-  LoginRequestBody, 
+import {
+  IUser,
+  IRoadmap,
+  AuthRequest,
+  SignupRequestBody,
+  LoginRequestBody,
   UpdateProfileRequestBody,
-  ApiResponse 
+  ApiResponse
 } from '../types/index.js';
 
 // @desc    Register new user
@@ -20,16 +20,16 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
     const { username, email, password } = req.body;
 
     // Check if user already exists
-    const userExists = await User.findOne({ 
-      $or: [{ email }, { username }] 
+    const userExists = await User.findOne({
+      $or: [{ email }, { username }]
     });
 
     if (userExists) {
-      return res.status(400).json({ 
-        success: false, 
-        message: userExists.email === email 
-          ? 'Email already in use' 
-          : 'Username already taken' 
+      return res.status(400).json({
+        success: false,
+        message: userExists.email === email
+          ? 'Email already in use'
+          : 'Username already taken'
       });
     }
 
@@ -37,7 +37,12 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
     const user = await User.create({
       username,
       email,
-      password
+      password,
+      profileData: {
+        goal: '',
+        timeCommitment: '',
+        learningStyle: ''
+      }
     });
 
     // Generate JWT token
@@ -72,14 +77,14 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
       try {
         const user = await User.findById(userId);
         if (!user) return null;
-        
+
         // Generate roadmap based on user's goal
         const roadmapTitle = `Your path to ${goal}`;
         const roadmapDescription = `A personalized learning journey to help you ${goal.toLowerCase()}`;
-        
+
         // Create basic milestone structure based on goal
         let milestones: any[] = [];
-        
+
         if (goal === "Starting an Startup") {
           milestones = [
             {
@@ -90,7 +95,7 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
               type: "knowledge",
               requiredSkills: [],
               unlockConditions: { minimumLevel: 1 },
-              rewards: { 
+              rewards: {
                 experience: 50,
                 skills: [
                   { skill: "Business Planning", points: 15 },
@@ -119,10 +124,10 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
               status: "locked",
               order: 2,
               type: "project",
-              unlockConditions: { 
+              unlockConditions: {
                 minimumLevel: 2
               },
-              rewards: { 
+              rewards: {
                 experience: 75,
                 skills: [
                   { skill: "Product Development", points: 20 },
@@ -143,7 +148,7 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
             },
             // Additional milestones...
           ];
-        } 
+        }
         else if (goal === "Full stack Dev") {
           milestones = [
             {
@@ -152,7 +157,7 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
               status: "available",
               order: 1,
               type: "knowledge",
-              rewards: { 
+              rewards: {
                 experience: 50,
                 skills: [
                   { skill: "HTML/CSS", points: 15 },
@@ -175,7 +180,7 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
           ];
         }
         // Add more goal-specific roadmaps
-        
+
         // Create the roadmap
         const roadmap = new Roadmap({
           userId,
@@ -184,13 +189,13 @@ export const signup = async (req: Request<{}, ApiResponse, SignupRequestBody>, r
           goal,
           milestones
         });
-        
+
         await roadmap.save();
-        
+
         // Link to user
         user.profileData.roadmapId = roadmap._id.toString();
         await user.save();
-        
+
         return roadmap.toObject() as unknown as IRoadmap;
       } catch (error) {
         console.error("Error generating roadmap:", error);
@@ -219,7 +224,7 @@ export const login = async (req: Request<{}, ApiResponse, LoginRequestBody>, res
 
     // Find user by email
     const user = await User.findOne({ email });
-    
+
     // Check if user exists and password is correct
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({
@@ -228,13 +233,7 @@ export const login = async (req: Request<{}, ApiResponse, LoginRequestBody>, res
       });
     }
 
-    // Block login if user is a Google user
-    if (user.isGoogleUser) {
-      return res.status(401).json({
-        success: false,
-        message: 'Please login with Google'
-      });
-    }
+
 
     // Generate JWT token
     const token = jwt.sign(
@@ -242,7 +241,7 @@ export const login = async (req: Request<{}, ApiResponse, LoginRequestBody>, res
       process.env.JWT_SECRET as string,
       { expiresIn: '30d' }
     );
-    
+
     // Set HTTP-only cookie
     res.cookie('jwt', token, {
       httpOnly: true,
@@ -278,7 +277,7 @@ export const login = async (req: Request<{}, ApiResponse, LoginRequestBody>, res
 export const getUserProfile = async (req: AuthRequest, res: Response<ApiResponse>) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -307,10 +306,10 @@ export const logout = (req: Request, res: Response<ApiResponse>) => {
     httpOnly: true,
     expires: new Date(0)
   });
-  
-  res.status(200).json({ 
+
+  res.status(200).json({
     success: true,
-    message: 'Logged out successfully' 
+    message: 'Logged out successfully'
   });
 };
 
@@ -320,23 +319,23 @@ export const logout = (req: Request, res: Response<ApiResponse>) => {
 export const updateProfile = async (req: AuthRequest, res: Response<ApiResponse>) => {
   try {
     const { goal, timeCommitment, learningStyle } = req.body;
-    
+
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     // Update profile data
     if (goal) user.profileData.goal = goal;
     if (timeCommitment) user.profileData.timeCommitment = timeCommitment;
     if (learningStyle) user.profileData.learningStyle = learningStyle;
-    
+
     await user.save();
-    
+
     res.status(200).json({
       success: true,
       user: {
@@ -346,45 +345,12 @@ export const updateProfile = async (req: AuthRequest, res: Response<ApiResponse>
         profileData: user.profileData
       }
     });
-    
+
   } catch (error: any) {
     console.error('Error updating profile:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Server error updating profile'
     });
-  }
-};
-
-// Google OAuth callback
-export const googleCallback = (req: AuthRequest, res: Response) => {
-  try {
-    // Check if this is a new user (created during this authentication)
-    const isNewUser = req.user.__isNewUser || false;
-
-    // Generate JWT for the authenticated user
-    const token = jwt.sign(
-      { id: req.user._id },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '30d' }
-    );
-
-    // Instead of sending the token as query param, embed it in a cookie
-    res.cookie('tempAuthToken', token, {
-      maxAge: 60 * 1000, // Short-lived cookie
-      httpOnly: false,    // Readable by client-side JS
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    });
-
-    // Redirect directly to the appropriate page
-    const redirectUrl = isNewUser 
-      ? `${process.env.CLIENT_URL}/onboarding/goal`
-      : `${process.env.CLIENT_URL}/dashboard`;
-    
-    res.redirect(redirectUrl);
-  } catch (error: any) {
-    console.error('Error in Google auth callback:', error);
-    res.redirect(`${process.env.CLIENT_URL}/login?error=ServerError`);
   }
 };
