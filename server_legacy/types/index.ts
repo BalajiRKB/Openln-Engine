@@ -7,8 +7,6 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password?: string;
-  isGoogleUser: boolean;
-  googleId?: string;
   profileData: {
     rank: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
     level: number;
@@ -39,7 +37,7 @@ export interface IUser extends Document {
   createdAt: Date;
   matchPassword(enteredPassword: string): Promise<boolean>;
   getSignedJwtToken(): string;
-  __isNewUser?: boolean;
+
 }
 
 // Task Interface

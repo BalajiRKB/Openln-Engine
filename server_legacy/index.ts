@@ -1,14 +1,19 @@
+import { Buffer } from 'node:buffer';
+
+// Polyfill for SlowBuffer which was removed in Node 25, required by older dependencies
+if (typeof global.SlowBuffer === 'undefined') {
+    // @ts-ignore
+    global.SlowBuffer = Buffer;
+}
+
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { router as routes } from './routes.js';
 import connectDB from './config/db.js';
-import passport from './config/passport.js'; // Import passport configuration
-
 // Load environment variables - at the very top of the file
 dotenv.config();
-console.log("Server ENV loaded - Google Client ID:", process.env.GOOGLE_CLIENT_ID ? "Set" : "Not set");
 
 // Connect to database
 connectDB();
@@ -17,16 +22,13 @@ const app = express();
 
 // Enable CORS
 app.use(cors({
-    origin: ["http://localhost:5173", "https://openln.netlify.app" ,"https://openln.pages.dev"], 
+    origin: ["http://localhost:5173", "https://openln.netlify.app", "https://openln.pages.dev"],
     credentials: true,
 }));
 
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
-
-// Initialize passport
-app.use(passport.initialize());
 
 // Routes
 app.get("/", (req, res) => {

@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Request, Response } from "express";
 import dotenv from "dotenv";
+import { generateLearningTaskPrompt } from "../utils/prompts.js";
 import Task from "../models/task.js";
 import User from "../models/user.js";
 import { AuthRequest, IUser, ITask } from "../types/index.js";
@@ -34,7 +35,7 @@ const determineSkillsForGoal = (goal: string): string[] => {
     "Full stack Dev": ["Frontend", "Backend", "Database", "DevOps", "API Design", "UI/UX"],
     "Crack GSOC": ["Open Source", "Git", "Algorithms", "Project Management", "Communication", "Documentation"]
   };
-  
+
   return skillMap[goal] || ["Learning", "Problem Solving"];
 };
 
@@ -42,7 +43,7 @@ const determineSkillsForGoal = (goal: string): string[] => {
 const determineTaskTypes = (goal: string, learningStyle: string): string[] => {
   // Base task types that apply to all goals
   const baseTypes = ['AI Module', 'Quiz'];
-  
+
   // Goal-specific task types
   const goalTaskMap: Record<string, string[]> = {
     "Getting 12+ lpa job": ['Coding', 'Practice'],
@@ -50,7 +51,7 @@ const determineTaskTypes = (goal: string, learningStyle: string): string[] => {
     "Full stack Dev": ['Coding', 'Project'],
     "Crack GSOC": ['Coding', 'Reading']
   };
-  
+
   // Learning style preferences
   const styleTaskMap: Record<string, string[]> = {
     "Visual": ['AI Module', 'Project'],
@@ -59,18 +60,18 @@ const determineTaskTypes = (goal: string, learningStyle: string): string[] => {
     "Kinesthetic": ['Coding', 'Project', 'Practice'],
     "Mixed/Flexible": ['Project', 'Practice', 'Reading']
   };
-  
+
   // Combine base types with goal and learning style preferences
   let taskTypes = [...baseTypes];
-  
+
   if (goalTaskMap[goal]) {
     taskTypes = [...taskTypes, ...goalTaskMap[goal]];
   }
-  
+
   if (learningStyle && styleTaskMap[learningStyle]) {
     taskTypes = [...taskTypes, ...styleTaskMap[learningStyle]];
   }
-  
+
   // Remove duplicates
   return [...new Set(taskTypes)];
 };
@@ -79,47 +80,34 @@ const determineTaskTypes = (goal: string, learningStyle: string): string[] => {
 const generateTaskContent = async (user: IUser, taskType: string): Promise<any> => {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-    
+
     const userLevel = user.profileData.level;
     const userGoal = user.profileData.goal;
     const userLearningStyle = user.profileData.learningStyle;
     const userTimeCommitment = user.profileData.timeCommitment;
-    
-    let prompt = `Generate a learning task for a user with the following preferences:
-    - Goal: ${userGoal}
-    - Learning style preference: ${userLearningStyle || 'Mixed/Flexible'}
-    - Time available: ${userTimeCommitment || 'Flexible'}
-    - Current level: ${userLevel} (1 is beginner, 20+ is advanced)
-    - Task type: ${taskType}
-    
-    Format the response as a JSON object with the following structure:
-    {
-      "title": "Task title",
-      "description": "Brief description",
-      "content": "Detailed content including steps, instructions, and explanation",
-      "quiz": [
-        {
-          "question": "Question text",
-          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-          "answer": "Correct option"
-        }
-      ]
-    }
-    
-    Make sure the content aligns with the user's learning style and can be completed within their available time.`;
-    
+
+
+
+    let prompt = generateLearningTaskPrompt(
+      userGoal,
+      userLearningStyle,
+      userTimeCommitment,
+      userLevel,
+      taskType
+    );
+
     // Add a retry mechanism (3 attempts)
     let attempt = 0;
     let maxAttempts = 3;
     let response;
     let taskData;
-    
+
     while (attempt < maxAttempts) {
       try {
         const result = await model.generateContent(prompt);
         response = result.response;
         taskData = JSON.parse(response.text());
-        
+
         // If we got valid data, break out of the retry loop
         if (taskData && taskData.content) {
           break;
@@ -131,12 +119,12 @@ const generateTaskContent = async (user: IUser, taskType: string): Promise<any> 
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
-    
+
     // If we still don't have valid data after all attempts, use fallback content
     if (!taskData || !taskData.content) {
       return getFallbackTaskContent(taskType, user.profileData.goal);
     }
-    
+
     return taskData;
   } catch (error: any) {
     console.error("Error generating task content:", error);
@@ -167,7 +155,7 @@ const getFallbackTaskContent = (taskType: string, goal: string): any => {
       }
     ]
   };
-  
+
   return fallbackContent;
 };
 
@@ -175,26 +163,26 @@ const getFallbackTaskContent = (taskType: string, goal: string): any => {
 export const generateDailyTasks = async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     // Check if tasks already exist for today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const existingTasks = await Task.find({
       userId: user._id,
       createdAt: { $gte: today, $lt: tomorrow }
     });
-    
+
     if (existingTasks.length > 0) {
       return res.status(200).json({
         success: true,
@@ -202,37 +190,37 @@ export const generateDailyTasks = async (req: AuthRequest, res: Response) => {
         tasks: existingTasks
       });
     }
-    
+
     // Determine user's time commitment and generate appropriate number of tasks
     let tasksToGenerate = 1; // Default
-    
+
     if (user.profileData.timeCommitment === '1 hour') {
       tasksToGenerate = 2;
     } else if (user.profileData.timeCommitment === '2 hrs +') {
       tasksToGenerate = 3;
     }
-    
+
     // Determine task types based on user's goal and learning style
     const taskTypes = determineTaskTypes(user.profileData.goal, user.profileData.learningStyle);
-    
+
     // Generate tasks
     const tasks = [];
-    
+
     for (let i = 0; i < tasksToGenerate; i++) {
       const taskType = taskTypes[i % taskTypes.length];
       const difficulty = getTaskDifficulty(user.profileData.level);
       const experienceReward = getExperienceReward(difficulty);
-      
+
       // Generate task content using AI
       const taskContent = await generateTaskContent(user, taskType);
-      
+
       // Determine skills that this task will improve
       const relevantSkills = determineSkillsForGoal(user.profileData.goal);
       const skillRewards = relevantSkills.slice(0, 2).map((skill: string) => ({
         skill,
         points: Math.floor(5 + (difficulty * 2))
       }));
-      
+
       // Create the task
       const task = new Task({
         title: taskContent.title,
@@ -247,17 +235,17 @@ export const generateDailyTasks = async (req: AuthRequest, res: Response) => {
         generatedBy: 'ai',
         deadline: tomorrow
       });
-      
+
       await task.save();
       tasks.push(task);
     }
-    
+
     res.status(201).json({
       success: true,
       message: 'Daily tasks generated successfully',
       tasks
     });
-    
+
   } catch (error: any) {
     console.error('Error generating daily tasks:', error);
     res.status(500).json({
@@ -271,7 +259,7 @@ export const generateDailyTasks = async (req: AuthRequest, res: Response) => {
 export const getTasks = async (req: AuthRequest, res: Response) => {
   try {
     const tasks = await Task.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    
+
     res.status(200).json({
       success: true,
       tasks
@@ -289,14 +277,14 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 export const completeTask = async (req: AuthRequest, res: Response) => {
   try {
     const task = await Task.findOne({ _id: req.params.id, userId: req.user.id });
-    
+
     if (!task) {
       return res.status(404).json({
         success: false,
         message: 'Task not found'
       });
     }
-    
+
     if (task.status === 'completed') {
       return res.status(400).json({
         success: false,
@@ -307,7 +295,7 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
     // Check quiz answers if the task has a quiz
     if (task.quiz && task.quiz.length > 0) {
       const { quizAnswers } = req.body;
-      
+
       // Make sure all questions are answered
       if (!quizAnswers || Object.keys(quizAnswers).length !== task.quiz.length) {
         return res.status(400).json({
@@ -315,12 +303,12 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
           message: 'Please answer all quiz questions'
         });
       }
-      
+
       // Check if answers are correct
-      const allCorrect = task.quiz.every((question, index) => 
+      const allCorrect = task.quiz.every((question, index) =>
         quizAnswers[index] === question.answer
       );
-      
+
       if (!allCorrect) {
         return res.status(400).json({
           success: false,
@@ -328,12 +316,12 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
         });
       }
     }
-    
+
     // Update task status
     task.status = 'completed';
     task.updatedAt = new Date();
     await task.save();
-    
+
     // Update user's experience, skills, and streak
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -342,16 +330,16 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
         message: 'User not found'
       });
     }
-    
+
     // Add experience
     user.profileData.experience += task.experienceReward;
-    
+
     // Update skills
     for (const skillReward of task.skillRewards) {
       if (!skillReward.skill || !skillReward.points) continue;
-      
+
       const existingSkill = user.profileData.skills.find(s => s.name === skillReward.skill);
-      
+
       if (existingSkill) {
         existingSkill.proficiency = Math.min(100, existingSkill.proficiency + skillReward.points);
         existingSkill.lastImproved = new Date();
@@ -363,25 +351,25 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
         });
       }
     }
-    
+
     // Update streak
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (user.profileData.streak && user.profileData.streak.lastCompleted) {
       const lastCompletedDate = new Date(user.profileData.streak.lastCompleted);
       lastCompletedDate.setHours(0, 0, 0, 0);
-      
+
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      
+
       if (lastCompletedDate.getTime() === yesterday.getTime()) {
         // User completed a task yesterday, increment streak
         user.profileData.streak.current += 1;
-        
+
         // Add achievement if streak milestone reached
-        if (user.profileData.streak.current >= 7 && 
-            user.profileData.streak.current % 7 === 0) {
+        if (user.profileData.streak.current >= 7 &&
+          user.profileData.streak.current % 7 === 0) {
           user.profileData.achievements.push({
             title: `${user.profileData.streak.current} Day Streak!`,
             description: `You've maintained your learning streak for ${user.profileData.streak.current} days!`,
@@ -389,7 +377,7 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
             date: new Date()
           });
         }
-        
+
         if (user.profileData.streak.current > user.profileData.streak.longest) {
           user.profileData.streak.longest = user.profileData.streak.current;
         }
@@ -401,19 +389,19 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
       // First completed task
       user.profileData.streak.current = 1;
     }
-    
+
     user.profileData.streak.lastCompleted = today;
-    
+
     // Add to completed tasks
     user.profileData.completedTasks.push(task._id.toString());
-    
+
     // Check for level up
     const previousLevel = user.profileData.level;
     const newLevel = calculateLevel(user.profileData.experience);
-    
+
     if (newLevel > previousLevel) {
       user.profileData.level = newLevel;
-      
+
       // Add achievement for level up
       user.profileData.achievements.push({
         title: `Reached Level ${newLevel}`,
@@ -421,14 +409,14 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
         icon: 'level-up',
         date: new Date()
       });
-      
+
       // Check for rank up
       const previousRank = user.profileData.rank;
       const newRank = calculateRank(newLevel);
-      
+
       if (newRank !== previousRank) {
         user.profileData.rank = newRank;
-        
+
         user.profileData.achievements.push({
           title: `Rank Up to ${newRank}`,
           description: `You've been promoted to rank ${newRank}!`,
@@ -437,10 +425,10 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
         });
       }
     }
-    
+
     // Update progress towards next level
     user.profileData.progress = calculateProgressToNextLevel(user.profileData.experience, user.profileData.level);
-    
+
     // Check for skill mastery achievements
     const masteredSkills = user.profileData.skills.filter(skill => skill.proficiency >= 80);
     for (const skill of masteredSkills) {
@@ -448,7 +436,7 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
       const existingAchievement = user.profileData.achievements.find(
         a => a.title === `${skill.name} Mastery` && a.icon === 'skill-mastery'
       );
-      
+
       if (!existingAchievement) {
         user.profileData.achievements.push({
           title: `${skill.name} Mastery`,
@@ -458,10 +446,10 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
         });
       }
     }
-    
+
     // Save user changes
     await user.save();
-    
+
     res.status(200).json({
       success: true,
       message: 'Task completed successfully',
@@ -479,7 +467,7 @@ export const completeTask = async (req: AuthRequest, res: Response) => {
         } : null
       }
     });
-    
+
   } catch (error: any) {
     console.error('Error completing task:', error);
     res.status(500).json({
@@ -511,7 +499,7 @@ const calculateProgressToNextLevel = (experience: number, currentLevel: number):
   const currentLevelExp = Math.pow(currentLevel - 1, 2) * 10;
   const expForNextLevel = nextLevelExp - currentLevelExp;
   const expSinceLastLevel = experience - currentLevelExp;
-  
+
   return Math.min(100, Math.floor((expSinceLastLevel / expForNextLevel) * 100));
 };
 
@@ -521,21 +509,21 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     const user = await User.findById(req.user.id)
       .select('-password')
       .populate('profileData.completedTasks');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     res.status(200).json({
       success: true,
       profileData: user.profileData,
       username: user.username,
       email: user.email
     });
-    
+
   } catch (error: any) {
     console.error('Error getting user profile:', error);
     res.status(500).json({
@@ -545,4 +533,4 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export {generateTaskContent };
+export { generateTaskContent };
